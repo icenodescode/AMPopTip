@@ -93,6 +93,8 @@ typedef NS_ENUM(NSInteger, AMPopTipActionAnimation) {
  */
 + (instancetype)popTip;
 
+- (void)showText:(NSString *)text direction:(AMPopTipDirection)direction preferedWidth:(CGFloat)preferedWidth inView:(UIView *)view fromFrame:(CGRect)frame;
+
 /** Show the popover
  *
  * Shows an animated popover in a given view, from a given rectangle.

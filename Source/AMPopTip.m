@@ -29,6 +29,7 @@
 @property (nonatomic, assign, readwrite) BOOL isAnimating;
 @property (nonatomic, assign) CGRect textBounds;
 @property (nonatomic, assign) CGFloat maxWidth;
+@property (nonatomic, assign) CGFloat preferedWidth;
 @property (nonatomic, strong) UIView *customView;
 
 @end
@@ -96,15 +97,26 @@
 
 - (void)layoutSubviews {
     [super layoutSubviews];
-//    [self setup];
+    [self setup];
 }
 
 - (void)setup {
-    if (self.direction == AMPopTipDirectionLeft) {
-        self.maxWidth = MIN(self.maxWidth, self.fromFrame.origin.x - self.padding * 2 - self.edgeInsets.left - self.edgeInsets.right - self.arrowSize.width);
+
+    if (_preferedWidth) {
+        if (self.direction == AMPopTipDirectionLeft || self.direction == AMPopTipDirectionRight) {
+            self.maxWidth = _preferedWidth - self.padding * 2.0 - self.edgeInsets.left - self.edgeInsets.right - self.arrowSize.height;
+        }
+        else{
+            self.maxWidth = _preferedWidth - self.padding * 2.0 - self.edgeInsets.left - self.edgeInsets.right;
+        }
     }
-    if (self.direction == AMPopTipDirectionRight) {
-        self.maxWidth = MIN(self.maxWidth, self.containerView.bounds.size.width - self.fromFrame.origin.x - self.fromFrame.size.width - self.padding * 2 - self.edgeInsets.left - self.edgeInsets.right - self.arrowSize.width);
+    else{
+        if (self.direction == AMPopTipDirectionLeft) {
+            self.maxWidth = MIN(self.maxWidth, self.fromFrame.origin.x - self.padding * 2 - self.edgeInsets.left - self.edgeInsets.right - self.arrowSize.width);
+        }
+        if (self.direction == AMPopTipDirectionRight) {
+            self.maxWidth = MIN(self.maxWidth, self.containerView.bounds.size.width - self.fromFrame.origin.x - self.fromFrame.size.width - self.padding * 2 - self.edgeInsets.left - self.edgeInsets.right - self.arrowSize.width);
+        }
     }
 
     if (self.text != nil) {
@@ -121,12 +133,18 @@
     }
 
     _textBounds.origin = (CGPoint){self.padding + self.edgeInsets.left, self.padding + self.edgeInsets.top};
+    if (_preferedWidth) {
+        _textBounds.origin.x = (_preferedWidth - _textBounds.size.width) / 2.0f;
+    }
 
     CGRect frame = CGRectZero;
     float offset = self.offset * ((self.direction == AMPopTipDirectionUp || self.direction == AMPopTipDirectionLeft || self.direction == AMPopTipDirectionNone) ? -1 : 1);
 
     if (self.direction == AMPopTipDirectionUp || self.direction == AMPopTipDirectionDown) {
         frame.size = (CGSize){self.textBounds.size.width + self.padding * 2.0 + self.edgeInsets.left + self.edgeInsets.right, self.textBounds.size.height + self.padding * 2.0 + self.edgeInsets.top + self.edgeInsets.bottom + self.arrowSize.height};
+        if (_preferedWidth) {
+            frame.size.width = _preferedWidth;
+        }
 
         CGFloat x = self.fromFrame.origin.x + self.fromFrame.size.width / 2 - frame.size.width / 2;
         if (x < 0) { x = self.edgeMargin; }
@@ -141,6 +159,9 @@
 
     } else if (self.direction == AMPopTipDirectionLeft || self.direction == AMPopTipDirectionRight) {
         frame.size = (CGSize){ self.textBounds.size.width + self.padding * 2.0 + self.edgeInsets.left + self.edgeInsets.right + self.arrowSize.height, self.textBounds.size.height + self.padding * 2.0 + self.edgeInsets.top + self.edgeInsets.bottom};
+        if (_preferedWidth) {
+            frame.size.width = _preferedWidth;
+        }
 
         CGFloat x = 0;
         if (self.direction == AMPopTipDirectionLeft) {
@@ -159,6 +180,9 @@
         frame.origin = (CGPoint){ x, y };
     } else {
         frame.size = (CGSize){ self.textBounds.size.width + self.padding * 2.0 + self.edgeInsets.left + self.edgeInsets.right, self.textBounds.size.height + self.padding * 2.0 + self.edgeInsets.top + self.edgeInsets.bottom };
+        if (_preferedWidth) {
+            frame.size.width = _preferedWidth;
+        }
         frame.origin = (CGPoint){ CGRectGetMidX(self.fromFrame) - frame.size.width / 2, CGRectGetMidY(self.fromFrame) - frame.size.height / 2 + offset };
     }
 
@@ -225,7 +249,7 @@
     if (self.customView) {
         self.customView.frame = self.textBounds;
     }
-    
+
     self.gestureRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTap:)];
     [self addGestureRecognizer:self.gestureRecognizer];
     [self setNeedsDisplay];
@@ -283,12 +307,10 @@
 }
 
 - (void)show {
-//    [self setNeedsDisplay];
-//    if (self.isVisible || self.isAnimating) {
-//        return;
-//    }
+    if (self.isVisible || self.isAnimating) {
+        return;
+    }
     self.isAnimating = YES;
-    [self setup];
     [self setNeedsLayout];
     [self performEntranceAnimation:^{
         [self.containerView addGestureRecognizer:self.tapRemoveGesture];
@@ -304,6 +326,20 @@
     }];
 }
 
+- (void)showText:(NSString *)text direction:(AMPopTipDirection)direction preferedWidth:(CGFloat)preferedWidth inView:(UIView *)view fromFrame:(CGRect)frame{
+    self.attributedText = nil;
+    self.text = text;
+    self.accessibilityLabel = text;
+    self.direction = direction;
+    self.containerView = view;
+    self.maxWidth = 0;
+    _fromFrame = frame;
+    self.customView = nil;
+    _preferedWidth = preferedWidth;
+
+    [self show];
+}
+
 - (void)showText:(NSString *)text direction:(AMPopTipDirection)direction maxWidth:(CGFloat)maxWidth inView:(UIView *)view fromFrame:(CGRect)frame {
     self.attributedText = nil;
     self.text = text;
@@ -312,7 +348,6 @@
     self.containerView = view;
     self.maxWidth = maxWidth;
     _fromFrame = frame;
-    [self.customView removeFromSuperview];
     self.customView = nil;
 
     [self show];
@@ -326,7 +361,6 @@
     self.containerView = view;
     self.maxWidth = maxWidth;
     _fromFrame = frame;
-    [self.customView removeFromSuperview];
     self.customView = nil;
 
     [self show];
@@ -339,8 +373,8 @@
     self.containerView = view;
     self.maxWidth = customView.frame.size.width;
     _fromFrame = frame;
-    [self.customView removeFromSuperview];
     self.customView = customView;
+
     [self addSubview:self.customView];
     [self.customView layoutIfNeeded];
 
@@ -397,26 +431,21 @@
     self.dismissTimer = nil;
     [self.containerView removeGestureRecognizer:self.tapRemoveGesture];
     [self.containerView removeGestureRecognizer:self.swipeRemoveGesture];
+    if (self.superview) {
 
-    void (^completion)() = ^{
-        [self.customView removeFromSuperview];
-        self.customView = nil;
-        [self stopActionAnimation];
-        [self removeFromSuperview];
-        [self.layer removeAllAnimations];
-        self.transform = CGAffineTransformIdentity;
-        self->_isVisible = NO;
-        self->_isAnimating = NO;
-        if (self.dismissHandler) {
-            self.dismissHandler();
-        }
-    };
-
-    UIApplicationState state = [[UIApplication sharedApplication] applicationState];
-    if (state == UIApplicationStateBackground || state == UIApplicationStateInactive) {
-        completion();
-    } else if (self.superview) {
-        [self performExitAnimation:completion];
+        [self performExitAnimation:^{
+            [self.customView removeFromSuperview];
+            self.customView = nil;
+            [self stopActionAnimation];
+            [self removeFromSuperview];
+            [self.layer removeAllAnimations];
+            self.transform = CGAffineTransformIdentity;
+            self->_isVisible = NO;
+            self->_isAnimating = NO;
+            if (self.dismissHandler) {
+                self.dismissHandler();
+            }
+        }];
     }
 }
 
